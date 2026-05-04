@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Simulacion</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        #game-container { border: 6px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <script>
+    const config = {
+        type: Phaser.AUTO,
+        width: 600,
+        height: 600,
+        parent: 'game-container',
+        pixelArt: true, 
+        scene: { preload: preload, create: create, update: update }
+    };
+
+    const game = new Phaser.Game(config);
+    let agentesSprites = {};
+    let bubbles = {};
+
+    function preload() {
+        // assets de RPG Maker / 16-bit style
+        this.load.image('tiles', 'https://labs.phaser.io/assets/tilemaps/tiles/drawtiles-spaced.png');
+        this.load.spritesheet('char', 'https://labs.phaser.io/assets/animations/bims.png', { frameWidth: 16, frameHeight: 16 });
+    }
+
+    function create() {
+        for (let i = 0; i < 12; i++) {
+            for (let j = 0; j < 12; j++) {
+                this.add.image(i * 50, j * 50, 'tiles', 15).setDisplaySize(50, 50).setOrigin(0);
+            }
+        }
+
+        this.add.rectangle(300, 300, 150, 100, 0x5d4037).setOrigin(0.5);
+        this.add.text(300, 300, 'REUNIÓN', { font: '10px VT323', fill: '#fff' }).setOrigin(0.5);
+    }
+
+    async function update() {
+        try {
+            const response = await fetch('http://localhost:8000/estado');
+            const data = await response.json();
+
+            data.agentes.forEach(a => {
+                const targetX = a.x * 50 + 25;
+                const targetY = a.y * 50 + 25;
+
+                if (!agentesSprites[a.nombre]) {
+                    const container = this.add.container(targetX, targetY);
+                    
+                    const sprite = this.add.text(0, 0, a.emoji, { fontSize: '32px' }).setOrigin(0.5);
+                    const name = this.add.text(0, 25, a.nombre, { 
+                        fontFamily: 'VT323', fontSize: '14px', fill: '#fff', 
+                        backgroundColor: '#000', padding: {x:4, y:2} 
+                    }).setOrigin(0.5);
+
+                    container.add([sprite, name]);
+                    agentesSprites[a.nombre] = container;
+
+                    const bRect = this.add.graphics();
+                    const bText = this.add.text(0, -60, '', { 
+                        fontFamily: 'VT323', fontSize: '12px', fill: '#000', 
+                        wordWrap: { width: 120 }, align: 'center' 
+                    }).setOrigin(0.5);
+                    
+                    container.add([bRect, bText]);
+                    bubbles[a.nombre] = { rect: bRect, text: bText };
+                }
+
+                const char = agentesSprites[a.nombre];
+                this.tweens.add({
+                    targets: char,
+                    x: targetX,
+                    y: targetY,
+                    duration: 1500,
+                    ease: 'Power2'
+                });
+
+                const b = bubbles[a.nombre];
+                if (a.mensaje) {
+                    b.text.setText(a.mensaje);
+                    b.rect.clear();
+                    b.rect.fillStyle(0xffffff, 1);
+                    b.rect.lineStyle(2, 0x000000, 1);
+                    b.rect.fillRoundedRect(-70, -90, 140, 50, 8);
+                    b.rect.strokeRoundedRect(-70, -90, 140, 50, 8);
+                    b.text.setVisible(true);
+                    b.rect.setVisible(true);
+                } else {
+                    b.text.setVisible(false);
+                    b.rect.setVisible(false);
+                }
+            });
+        } catch (e) {}
+    }
+
+    setInterval(() => {
+    }, 2000);
+    </script>
+</body>
+</html>
